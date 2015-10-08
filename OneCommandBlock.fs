@@ -1,7 +1,20 @@
-let cmds =
+let cmdsx =
     [|
         "MINECART"
         """tellraw @a ["1  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["2  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["3  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["4  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["5  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["6  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["7  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["8  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+        """tellraw @a ["9  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+    |]
+let cmds =
+    [|
+        """R"""
+        """O tellraw @a ["1  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["2  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["3  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["4  ",{"score":{"name":"Ticks","objective":"S"}}]"""
@@ -22,6 +35,7 @@ let BLOCKS = true
 do
     let mutable sb = new System.Text.StringBuilder()
     if cmds.[0] <> "MINECART" then
+#if RIDING        
         sb.Append("""summon Item ~ ~10 ~ {Item:{id:dirt,Damage:0,Count:1},Age:5999,""") |> ignore
         for c in cmds do
             if c = "R" then
@@ -37,6 +51,22 @@ do
         sb <- new System.Text.StringBuilder(sb.ToString().Substring(0,sb.Length-1))  // strip extra comma
         for i = 0 to cmds.Length do
             sb.Append("""}""") |> ignore
+#else
+        sb.Append("""summon Item ~ ~0.55 ~ {Item:{id:dirt,Damage:0,Count:1},Age:5999,Passengers:[""") |> ignore
+        for c in cmds |> Seq.toList |> List.rev do
+            if c = "R" then
+                sb.Append("{id:FallingSand,Block:redstone_block,Time:1,Passengers:[") |> ignore 
+            elif c = "P" then
+                sb.Append("{id:FallingSand,Block:repeating_command_block,Time:1,Passengers:[") |> ignore
+            elif c.StartsWith("O ") then
+                sb.Append(sprintf "{id:FallingSand,Block:command_block,Time:1,TileEntityData:{Command:\"%s\"},Passengers:[" (escape (c.Substring(2)))) |> ignore
+            elif c.StartsWith("C ") then
+                sb.Append(sprintf "{id:FallingSand,Block:chain_command_block,Time:1,Data:8,TileEntityData:{Command:\"%s\"},Passengers:[" (escape (c.Substring(2)))) |> ignore
+            else
+                sb.Append(sprintf "{id:FallingSand,Block:chain_command_block,Time:1,TileEntityData:{Command:\"%s\"},Passengers:[" (escape c)) |> ignore
+        for i = 0 to cmds.Length do
+            sb.Append("""]}""") |> ignore
+#endif
     else
 #if RIDING        
         // runs all cmds in 1 tick, after 8 ticks, in reverse order, leaves only tiny residue
