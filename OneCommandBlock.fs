@@ -135,30 +135,37 @@ let cmdsline = // TODO make so player places 2 spawn eggs, it computes dx dy dz,
 
 let cmds = 
     [|
-        // computes the dx/dz from A to B (provided it's in within -127...127) 
+        // computes the dx/dy/dz from A to B (provided it's in within -127...127) 
         let MAX = 128
-        let STEPS = [128;64;32;16;8;4;2;1]
+        let STEPS = [-128;-64;-32;-16;-8;-4;-2;-1]
         yield "O "
-        yield "scoreboard objectives add X dummy"
-        yield "scoreboard objectives add Z dummy"
-        yield "scoreboard players set @p X 0"
-        yield "scoreboard players set @p Z 0"
-        yield sprintf "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~%d ~ ~ {Marker:1,NoGravity:1,Tags:[\"TX\"]}" (0-MAX)
-        yield sprintf "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~ ~ ~%d {Marker:1,NoGravity:1,Tags:[\"TZ\"]}" (0-MAX)
+        yield "scoreboard objectives add lineDrawDX dummy"
+        yield "scoreboard objectives add lineDrawDY dummy"
+        yield "scoreboard objectives add lineDrawDZ dummy"
+        yield sprintf "scoreboard players set @p lineDrawDX %d" (MAX-1)
+        yield sprintf "scoreboard players set @p lineDrawDY %d" (MAX-2)  // y testing is weird for some reason...
+        yield sprintf "scoreboard players set @p lineDrawDZ %d" (MAX-1)
+        yield sprintf "execute @e[tag=lineDrawA] ~ ~ ~ summon ArmorStand ~%d ~ ~ {Marker:1,NoGravity:1,Tags:[\"lineDrawTX\"]}" MAX
+        yield sprintf "execute @e[tag=lineDrawA] ~ ~ ~ summon ArmorStand ~ ~%d ~ {Marker:1,NoGravity:1,Tags:[\"lineDrawTY\"]}" MAX
+        yield sprintf "execute @e[tag=lineDrawA] ~ ~ ~ summon ArmorStand ~ ~ ~%d {Marker:1,NoGravity:1,Tags:[\"lineDrawTZ\"]}" MAX
         for s in STEPS do
-            yield sprintf "execute @e[tag=TX] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" 0 (0-MAX) (0-MAX) s (2*MAX) (2*MAX)
+            yield sprintf "execute @e[tag=lineDrawTX] ~%d ~%d ~%d testfor @e[tag=lineDrawB,dx=%d,dy=%d,dz=%d]" (0) (0-MAX) (0-MAX) (s) (2*MAX) (2*MAX)
             yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
-            yield sprintf "C tp @e[tag=TX] ~%d ~%d ~%d" s 0 0
-            yield sprintf "C scoreboard players add @p X %d" s
+            yield sprintf "C tp @e[tag=lineDrawTX] ~%d ~%d ~%d" s 0 0
+            yield sprintf "C scoreboard players remove @p lineDrawDX %d" (-s)
             
-            yield sprintf "execute @e[tag=TZ] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" (0-MAX) (0-MAX) 0 (2*MAX) (2*MAX) s
+            yield sprintf "execute @e[tag=lineDrawTY] ~%d ~%d ~%d testfor @e[tag=lineDrawB,dx=%d,dy=%d,dz=%d]" (0-MAX) (0) (0-MAX) (2*MAX) (s) (2*MAX)
             yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
-            yield sprintf "C tp @e[tag=TZ] ~%d ~%d ~%d" 0 0 s
-            yield sprintf "C scoreboard players add @p Z %d" s
-        yield sprintf "scoreboard players remove @p X %d" (MAX-1)  // always OBO 
-        yield sprintf "scoreboard players remove @p Z %d" (MAX-1)  // always OBO 
-        yield "kill @e[tag=TX]"
-        yield "kill @e[tag=TZ]"
+            yield sprintf "C tp @e[tag=lineDrawTY] ~%d ~%d ~%d" 0 s 0
+            yield sprintf "C scoreboard players remove @p lineDrawDY %d" (-s)
+
+            yield sprintf "execute @e[tag=lineDrawTZ] ~%d ~%d ~%d testfor @e[tag=lineDrawB,dx=%d,dy=%d,dz=%d]" (0-MAX) (0-MAX) (0) (2*MAX) (2*MAX) (s)
+            yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
+            yield sprintf "C tp @e[tag=lineDrawTZ] ~%d ~%d ~%d" 0 0 s
+            yield sprintf "C scoreboard players remove @p lineDrawDZ %d" (-s)
+        yield "kill @e[tag=lineDrawTX]"
+        yield "kill @e[tag=lineDrawTY]"
+        yield "kill @e[tag=lineDrawTZ]"
     |]
 
 
