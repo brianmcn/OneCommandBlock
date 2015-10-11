@@ -25,61 +25,111 @@ let cmdsxx =
         """tellraw @a ["9  ",{"score":{"name":"Ticks","objective":"S"}}]"""
     |]
 
-let cmds = // TODO make so player places 2 spawn eggs, it computes dx dy, draws line
+let cmds = // TODO make so player places 2 spawn eggs, it computes dx dy dz, draws line
     [|
-        // assuming DX and DY are set in lineY objective, with DX >= 0, then this draws the line from player to relative (DX,DY) once player's lineY becomes non-zero
+        // assuming DX DY and DZ are set in lineDraw objective, then this draws the line from player to relative (DX,DY,DZ) once player's lineDraw becomes non-zero
         yield "R"
         yield "P"
         // detect a scoreboard update and launch the mechanism
-        yield "execute @p[score_lineY_min=1] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"lineYstart\"],Marker:1,NoGravity:1}"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players set @p lineY 0"
+        yield "execute @p[score_lineDraw_min=1] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"lineDrawstart\"],Marker:1,NoGravity:1}"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players set @p lineDraw 0"
+        // deal with negative DX
+        yield "scoreboard players set @e[tag=lineDrawstart] lineDrawXrev 0"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players test DX lineDraw * -1"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players set Temp lineDraw 0"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation Temp lineDraw -= DX lineDraw"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation DX lineDraw = Temp lineDraw"
+        yield "C scoreboard players set @e[tag=lineDrawstart] lineDrawXrev 1"
         // deal with negative DY
-        yield "scoreboard players set @e[tag=lineYstart] lineYreversed 0"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players test DY lineY * -1"
-        yield "C execute @e[tag=lineYstart] ~ ~ ~ scoreboard players set Temp lineY 0"
-        yield "C execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation Temp lineY -= DY lineY"
-        yield "C execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation DY lineY = Temp lineY"
-        yield "C scoreboard players set @e[tag=lineYstart] lineYreversed 1"
-        // init vars
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation Temp lineY = DX lineY"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation Temp lineY -= DY lineY"
-        yield "scoreboard players set @e[tag=lineYstart] lineY 0"  // 0 means DY is greater
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players test Temp lineY 0 *"
-        yield "C scoreboard players set @e[tag=lineYstart] lineY 1"  // 1 means DX is greater or equal
-        yield "execute @e[tag=lineYstart,score_lineY=0] ~ ~ ~ scoreboard players operation DX lineY >< DY lineY"  // swap X/Y if DY was greater
-        // setup '2dx/2dy' vars
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDY lineY = DY lineY"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDY lineY += TDY lineY"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDX lineY = DX lineY"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDX lineY += TDX lineY"
-        // D = 2dy - dx
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation D lineY = TDY lineY"
-        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation D lineY -= DX lineY"
-        yield "entitydata @e[tag=lineYstart] {Tags:[\"lineYloop\"]}"
+        yield "scoreboard players set @e[tag=lineDrawstart] lineDrawYrev 0"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players test DY lineDraw * -1"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players set Temp lineDraw 0"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation Temp lineDraw -= DY lineDraw"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation DY lineDraw = Temp lineDraw"
+        yield "C scoreboard players set @e[tag=lineDrawstart] lineDrawYrev 1"
+        // deal with negative DZ
+        yield "scoreboard players set @e[tag=lineDrawstart] lineDrawZrev 0"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players test DZ lineDraw * -1"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players set Temp lineDraw 0"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation Temp lineDraw -= DZ lineDraw"
+        yield "C execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation DZ lineDraw = Temp lineDraw"
+        yield "C scoreboard players set @e[tag=lineDrawstart] lineDrawZrev 1"
+        // init vars, choose major axis
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TempZ lineDraw = DX lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TempZ lineDraw -= DZ lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players set @e[tag=lineDrawstart] lineDraw 0"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation MAJOR lineDraw = DZ lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players test TempZ lineDraw 0 *"
+        yield "C scoreboard players set @e[tag=lineDrawstart] lineDraw 1"
+        yield "C scoreboard players operation MAJOR lineDraw = DX lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TempY lineDraw = DY lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TempY lineDraw -= MAJOR lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players test TempY lineDraw 0 *"
+        yield "C scoreboard players set @e[tag=lineDrawstart] lineDraw 2"
+        yield "C scoreboard players operation MAJOR lineDraw = DY lineDraw"
+        // setup '2dx/2dy/2dz' vars
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDZ lineDraw = DZ lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDZ lineDraw += TDZ lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDX lineDraw = DX lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDX lineDraw += TDX lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDY lineDraw = DY lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TDY lineDraw += TDY lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TMAJOR lineDraw = MAJOR lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation TMAJOR lineDraw += TMAJOR lineDraw"
+        // A = 2dz - dx
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AZ lineDraw = TDZ lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AZ lineDraw -= MAJOR lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AY lineDraw = TDY lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AY lineDraw -= MAJOR lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AX lineDraw = TDX lineDraw"
+        yield "execute @e[tag=lineDrawstart] ~ ~ ~ scoreboard players operation AX lineDraw -= MAJOR lineDraw"
+        yield "entitydata @e[tag=lineDrawstart] {Tags:[\"lineDrawloop\"]}"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ setblock ~ ~ ~ stone"
         // loop
-        yield "execute @e[tag=lineYloop] ~ ~ ~ setblock ~ ~ ~ stone"
-        yield "tp @e[tag=lineYloop,score_lineY_min=1] ~1 ~ ~"
-        yield "tp @e[tag=lineYloop,score_lineY=0,score_lineYreversed=0] ~ ~ ~1"
-        yield "tp @e[tag=lineYloop,score_lineY=0,score_lineYreversed_min=1] ~ ~ ~-1"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
-        yield "C tp @e[tag=lineYloop,score_lineY_min=1,score_lineYreversed=0] ~ ~ ~1"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
-        yield "C tp @e[tag=lineYloop,score_lineY_min=1,score_lineYreversed_min=1] ~ ~ ~-1"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
-        yield "C tp @e[tag=lineYloop,score_lineY=0] ~1 ~ ~"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
-        yield "C execute @e[tag=lineYloop] ~ ~ ~ scoreboard players operation D lineY -= TDX lineY"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players operation D lineY += TDY lineY"
-        // endloop, stop when done dx steps
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players remove DX lineY 1"
-        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test DX lineY * -1"
-        yield "C kill @e[tag=lineYloop]"
+(*
+        // - major axis
+        yield "tp @e[tag=lineDrawloop,score_lineDraw=0,score_lineDraw_min=0,score_lineDrawZrev=0] ~ ~ ~1"
+        yield "tp @e[tag=lineDrawloop,score_lineDraw=0,score_lineDraw_min=0,score_lineDrawZrev_min=1] ~ ~ ~-1"
+        yield "tp @e[tag=lineDrawloop,score_lineDraw=2,score_lineDraw_min=0,score_lineDrawYrev=0] ~ ~1 ~"
+        yield "tp @e[tag=lineDrawloop,score_lineDraw=2,score_lineDraw_min=0,score_lineDrawYrev_min=1] ~ ~-1 ~"
+        yield "tp @e[tag=lineDrawloop,score_lineDraw=1] ~1 ~ ~"
+*)
+        // - diff on X
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AX lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawXrev=0] ~1 ~ ~"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AX lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawXrev_min=1] ~-1 ~ ~"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AX lineDraw 1 *"
+        yield "C execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AX lineDraw -= TMAJOR lineDraw"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AX lineDraw += TDX lineDraw"
+        // - diff on Y
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AY lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawYrev=0] ~ ~1 ~"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AY lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawYrev_min=1] ~ ~-1 ~"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AY lineDraw 1 *"
+        yield "C execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AY lineDraw -= TMAJOR lineDraw"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AY lineDraw += TDY lineDraw"
+        // - diff on Z
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AZ lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawZrev=0] ~ ~ ~1"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AZ lineDraw 1 *"
+        yield "C tp @e[tag=lineDrawloop,score_lineDrawZrev_min=1] ~ ~ ~-1"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test AZ lineDraw 1 *"
+        yield "C execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AZ lineDraw -= TMAJOR lineDraw"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players operation AZ lineDraw += TDZ lineDraw"
+        // endloop, stop when done after MAJOR steps
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players remove MAJOR lineDraw 1"
+        yield "execute @e[tag=lineDrawloop] ~ ~ ~ scoreboard players test MAJOR lineDraw * -1"
+        yield "C kill @e[tag=lineDrawloop]"
         // init bit
         yield "R"
         yield "O gamerule commandBlockOutput false"
-        yield "scoreboard objectives add lineY dummy"
-        yield "scoreboard objectives add lineYreversed dummy"
-        yield "scoreboard players set @a lineY 0"
+        yield "scoreboard objectives add lineDraw dummy"
+        yield "scoreboard objectives add lineDrawZrev dummy"
+        yield "scoreboard objectives add lineDrawYrev dummy"
+        yield "scoreboard objectives add lineDrawXrev dummy"
+        yield "scoreboard players set @a lineDraw 0"
         yield """tellraw @a {"text":"Initializing, wait one moment...","color":"red"}"""
     |]
 
