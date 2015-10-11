@@ -11,7 +11,7 @@ let cmdsx =
         """tellraw @a ["8  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["9  ",{"score":{"name":"Ticks","objective":"S"}}]"""
     |]
-let cmds =
+let cmdsxx =
     [|
         """R"""
         """O tellraw @a ["1  ",{"score":{"name":"Ticks","objective":"S"}}]"""
@@ -23,6 +23,70 @@ let cmds =
         """tellraw @a ["7  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["8  ",{"score":{"name":"Ticks","objective":"S"}}]"""
         """tellraw @a ["9  ",{"score":{"name":"Ticks","objective":"S"}}]"""
+    |]
+
+(*
+plotLine(x0,y0, x1,y1)
+  dx=x1-x0
+  dy=y1-y0
+
+  D = 2*dy - dx
+  plot(x0,y0)
+  y=y0
+
+  for x from x0+1 to x1
+    D = D + (2*dy)
+    if D > 0
+      y = y+1
+      D = D - (2*dx)
+    plot(x,y)
+
+*)
+let cmds = 
+    [|
+        // assuming DX and DY are set, with DX >= DY >= 0, then this draws the line from player to relative (DX,DY)
+        yield "R"
+        yield "P"
+        // detect a scoreboard update and launch the mechanism
+        yield "execute @p[score_lineY_min=1] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"lineYstart\"],Marker:1,NoGravity:1}"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players set @p lineY 0"
+        // TODO still assuming both >= 0
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation Temp lineY = DX lineY"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation Temp lineY -= DY lineY"
+        yield "scoreboard players set @e[tag=lineYstart] lineY 0"  // 0 means DY is greater
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players test Temp lineY 0 *"
+        yield "C scoreboard players set @e[tag=lineYstart] lineY 1"  // 1 means DX is greater or equal
+        yield "execute @e[tag=lineYstart,score_lineY=0] ~ ~ ~ scoreboard players operation DX lineY >< DY lineY"  // swap X/Y if DY was greater
+        // setup '2dx/2dy' vars
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDY lineY = DY lineY"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDY lineY += TDY lineY"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDX lineY = DX lineY"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation TDX lineY += TDX lineY"
+        // D = 2dy - dx
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation D lineY = TDY lineY"
+        yield "execute @e[tag=lineYstart] ~ ~ ~ scoreboard players operation D lineY -= DX lineY"
+        yield "entitydata @e[tag=lineYstart] {Tags:[\"lineYloop\"]}"
+        // loop
+        yield "execute @e[tag=lineYloop] ~ ~ ~ setblock ~ ~ ~ stone"
+        yield "tp @e[tag=lineYloop,score_lineY_min=1] ~1 ~ ~"
+        yield "tp @e[tag=lineYloop,score_lineY=0] ~ ~ ~1"
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
+        yield "C tp @e[tag=lineYloop,score_lineY_min=1] ~ ~ ~1"
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
+        yield "C tp @e[tag=lineYloop,score_lineY=0] ~1 ~ ~"
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test D lineY 1 *"
+        yield "C execute @e[tag=lineYloop] ~ ~ ~ scoreboard players operation D lineY -= TDX lineY"
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players operation D lineY += TDY lineY"
+        // endloop, stop when done dx steps
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players remove DX lineY 1"
+        yield "execute @e[tag=lineYloop] ~ ~ ~ scoreboard players test DX lineY * -1"
+        yield "C kill @e[tag=lineYloop]"
+        // init bit
+        yield "R"
+        yield "O gamerule commandBlockOutput false"
+        yield "scoreboard objectives add lineY dummy"
+        yield "scoreboard players set @a lineY 0"
+        yield """tellraw @a {"text":"Initializing, wait one moment...","color":"red"}"""
     |]
 
 let escape(s:string) = s.Replace("\"","\\\"")
