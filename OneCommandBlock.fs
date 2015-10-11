@@ -135,39 +135,30 @@ let cmdsline = // TODO make so player places 2 spawn eggs, it computes dx dy dz,
 
 let cmds = 
     [|
-        // computes the dx from A to B (provided it's in within -127...127) 
-        let MAX = 127
-        let STEPS = [64;32;16;8;4;2;1]
+        // computes the dx/dz from A to B (provided it's in within -127...127) 
+        let MAX = 128
+        let STEPS = [128;64;32;16;8;4;2;1]
         yield "O "
         yield "scoreboard objectives add X dummy"
+        yield "scoreboard objectives add Z dummy"
         yield "scoreboard players set @p X 0"
-        yield sprintf "execute @e[tag=A] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" 0 (0-MAX) (0-MAX) 0 (2*MAX) (2*MAX)
-        yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
-        yield "C blockdata ~ ~-2 ~ {auto:1b}"
-        yield "C blockdata ~ ~-1 ~ {auto:0b}"
-        yield "O "
-        yield "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"T\"]}"
+        yield "scoreboard players set @p Z 0"
+        yield sprintf "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~%d ~ ~ {Marker:1,NoGravity:1,Tags:[\"TX\"]}" (0-MAX)
+        yield sprintf "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~ ~ ~%d {Marker:1,NoGravity:1,Tags:[\"TZ\"]}" (0-MAX)
         for s in STEPS do
-            yield sprintf "execute @e[tag=T] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" 0 (0-MAX) (0-MAX) s (2*MAX) (2*MAX)
+            yield sprintf "execute @e[tag=TX] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" 0 (0-MAX) (0-MAX) s (2*MAX) (2*MAX)
             yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
-            yield sprintf "C tp @e[tag=T] ~%d ~%d ~%d" s 0 0
+            yield sprintf "C tp @e[tag=TX] ~%d ~%d ~%d" s 0 0
             yield sprintf "C scoreboard players add @p X %d" s
-        yield "scoreboard players add @p X 1"  // always OBO 
-        yield "kill @e[tag=T]"
-        yield sprintf "scoreboard players test @p X %d *" (MAX+1)  // not found
-        yield "C blockdata ~ ~-2 ~ {auto:1b}"
-        yield "C blockdata ~ ~-1 ~ {auto:0b}"
-        yield "O "
-        let STEPS = [-64;-32;-16;-8;-4;-2;-1]
-        yield "scoreboard players set @p X 0"
-        yield "execute @e[tag=A] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"T\"]}"
-        for s in STEPS do
-            yield sprintf "execute @e[tag=T] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" 0 (0-MAX) (0-MAX) s (2*MAX) (2*MAX)
+            
+            yield sprintf "execute @e[tag=TZ] ~%d ~%d ~%d testfor @e[tag=B,dx=%d,dy=%d,dz=%d]" (0-MAX) (0-MAX) 0 (2*MAX) (2*MAX) s
             yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
-            yield sprintf "C tp @e[tag=T] ~%d ~%d ~%d" s 0 0
-            yield sprintf "C scoreboard players remove @p X %d" (0-s)  // can't add negatives
-        yield "scoreboard players remove @p X 1"  // always OBO 
-        yield "kill @e[tag=T]"
+            yield sprintf "C tp @e[tag=TZ] ~%d ~%d ~%d" 0 0 s
+            yield sprintf "C scoreboard players add @p Z %d" s
+        yield sprintf "scoreboard players remove @p X %d" (MAX-1)  // always OBO 
+        yield sprintf "scoreboard players remove @p Z %d" (MAX-1)  // always OBO 
+        yield "kill @e[tag=TX]"
+        yield "kill @e[tag=TZ]"
     |]
 
 
