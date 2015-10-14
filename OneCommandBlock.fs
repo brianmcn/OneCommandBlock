@@ -62,19 +62,27 @@ let drawSpiral =
         //////////////////////////////////////////
         let DEE = 1
         let BEE = 1
+#if TIGHT
+        let POFF = [| 0; 1; 2; 3 |] //[| 1; 3; 5; 7 |]
+        let RFACTOR = 1 //2
+#else
+        let POFF = [| 1; 3; 5; 7 |]
+        let RFACTOR = 2
+#endif
+        let ITER = RFACTOR * 4
         // init XX XX to first radius value of q1   (2*d+b +8i*d)
-        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ scoreboard players set XX XX %d" (2*DEE + BEE)  
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players set XX XX %d" (RFACTOR*DEE + BEE)  
         // init q1dropoff at first endpoint         (d+b+8i*d,d)
-        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q1dropoff\",\"alldropoff\"]}" (DEE+BEE) (-DEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q1dropoff\",\"alldropoff\"]}" (POFF.[0]*DEE+BEE) (-DEE)
         // init q2dropoff at second endpoint        (-d,3*d+b+8i*d) 
-        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q2dropoff\",\"alldropoff\"]}" (-DEE) (-3*DEE-BEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q2dropoff\",\"alldropoff\"]}" (-DEE) (-POFF.[1]*DEE-BEE)
         // init q3dropoff at third endpoint         (-5*d-b-8i*d,-d)
-        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q3dropoff\",\"alldropoff\"]}" (-5*DEE-BEE) (DEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q3dropoff\",\"alldropoff\"]}" (-POFF.[2]*DEE-BEE) (DEE)
         // init q4dropoff at third endpoint         (d,-7*d-b-8i*d)
-        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q4dropoff\",\"alldropoff\"]}" (DEE) (7*DEE+BEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q4dropoff\",\"alldropoff\"]}" (DEE) (POFF.[3]*DEE+BEE)
         // init CHOSEN spiralDist to @p spiralDist and zero out player
-        yield "execute @p[score_spiralDist_min=3] ~ ~ ~ scoreboard players operation CHOSEN spiralDist = @p spiralDist"
-        yield "scoreboard players set @p[score_spiralDist_min=3] spiralDist 0"
+        yield "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players operation CHOSEN spiralDist = @p spiralDist"
+        yield "scoreboard players set @p[score_spiralDist_min=1] spiralDist 0"
         //////////////////////////////////////////
         // drop off the q1 and q2 markers
         //////////////////////////////////////////
@@ -85,19 +93,19 @@ let drawSpiral =
         yield "execute @e[tag=q3dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q3init\",\"allinit\"]}"
         yield "execute @e[tag=q4dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q3binit\",\"allinit\"]}"
         yield "execute @e[tag=q4dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q4init\",\"allinit\"]}"
-        yield sprintf "execute @e[tag=q1dropoff] ~ ~ ~ summon ArmorStand ~%d ~ ~ {Marker:1,NoGravity:1,Tags:[\"q4binit\",\"allinit\"]}" (8*DEE)
+        yield sprintf "execute @e[tag=q1dropoff] ~ ~ ~ summon ArmorStand ~%d ~ ~ {Marker:1,NoGravity:1,Tags:[\"q4binit\",\"allinit\"]}" (ITER*DEE)
         yield "scoreboard players operation Temp XX = XX XX"
         yield "scoreboard players operation Temp XX -= CHOSEN spiralDist"
         yield "scoreboard players test Temp XX 0 *"  // TODO make so can end at any of 4 quadrants
         yield "C kill @e[tag=alldropoff]"
         // init the vars
         yield "scoreboard players operation @e[tag=allinit] XX = XX XX"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q2init] XX 2"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q2binit] XX 2"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q3init] XX 4"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q3binit] XX 4"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q4init] XX 6"  // for q2/q3/q4, add 2/4/6
-        yield "scoreboard players add @e[tag=q4binit] XX 6"  // for q2/q3/q4, add 2/4/6
+        yield sprintf "scoreboard players add @e[tag=q2init] XX %d"  (RFACTOR)
+        yield sprintf "scoreboard players add @e[tag=q2binit] XX %d" (RFACTOR)
+        yield sprintf "scoreboard players add @e[tag=q3init] XX %d"  (RFACTOR*2)
+        yield sprintf "scoreboard players add @e[tag=q3binit] XX %d" (RFACTOR*2)
+        yield sprintf "scoreboard players add @e[tag=q4init] XX %d"  (RFACTOR*3)
+        yield sprintf "scoreboard players add @e[tag=q4binit] XX %d" (RFACTOR*3)
         yield "scoreboard players set @e[tag=allinit] YY 0"
         yield "scoreboard players set @e[tag=allinit] DD 1"
         yield "execute @e[tag=allinit] ~ ~ ~ scoreboard players operation @e[tag=allinit,c=1] DD -= @e[tag=allinit,c=1] XX"
@@ -110,11 +118,11 @@ let drawSpiral =
         yield "entitydata @e[tag=q4init] {Tags:[\"APX\",\"SNZ\",\"allrun\"]}"
         yield "entitydata @e[tag=q4binit] {Tags:[\"APZ\",\"SNX\",\"allrun\"]}"
         // iter the loop for next dropoff
-        yield sprintf "scoreboard players add XX XX %d" (8 * DEE)
-        yield sprintf "tp @e[tag=q1dropoff] ~%d ~ ~" (8 * DEE)
-        yield sprintf "tp @e[tag=q2dropoff] ~ ~ ~%d" (-8 * DEE)
-        yield sprintf "tp @e[tag=q3dropoff] ~%d ~ ~" (-8 * DEE)
-        yield sprintf "tp @e[tag=q4dropoff] ~ ~ ~%d" (8 * DEE)
+        yield sprintf "scoreboard players add XX XX %d" (ITER * DEE)
+        yield sprintf "tp @e[tag=q1dropoff] ~%d ~ ~" (ITER * DEE)
+        yield sprintf "tp @e[tag=q2dropoff] ~ ~ ~%d" (-ITER * DEE)
+        yield sprintf "tp @e[tag=q3dropoff] ~%d ~ ~" (-ITER * DEE)
+        yield sprintf "tp @e[tag=q4dropoff] ~ ~ ~%d" (ITER * DEE)
 
         // debug
         for prefix in ["q1";"q1b";"q2";"q2b";"q3";"q3b";"q4";"q4b"] do
@@ -143,12 +151,15 @@ let drawSpiral =
         yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD += @e[tag=allrun,c=1] YY"
         yield "scoreboard players add @e[tag=allrun] DD 1"
         yield "scoreboard players remove @e[tag=allrun,score_DD_min=1] XX 1"
-        yield "tp @e[tag=SNX,score_DD_min=1] ~-1 ~ ~"
-        yield "tp @e[tag=SPZ,score_DD_min=1] ~ ~ ~1"
-        yield "tp @e[tag=SPX,score_DD_min=1] ~1 ~ ~"
-        yield "tp @e[tag=SNZ,score_DD_min=1] ~ ~ ~-1"
-        yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
-        yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
+        // test if DD > 0
+        yield "scoreboard players set @e Temp 0"
+        yield "scoreboard players set @e[tag=allrun,score_DD_min=1] Temp 1"
+        yield "tp @e[tag=SNX,score_Temp_min=1] ~-1 ~ ~"
+        yield "tp @e[tag=SPZ,score_Temp_min=1] ~ ~ ~1"
+        yield "tp @e[tag=SPX,score_Temp_min=1] ~1 ~ ~"
+        yield "tp @e[tag=SNZ,score_Temp_min=1] ~ ~ ~-1"
+        yield "execute @e[tag=allrun,score_Temp_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
+        yield "execute @e[tag=allrun,score_Temp_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
     |]
 
 
@@ -262,8 +273,8 @@ do
 *)
     let a,b = Geometry.All
     let s = makeOneCommandBlockWith(a,b)
-    let s = makeOneCommandBlock(OldContraptions.drawCircle)
     let s = makeOneCommandBlockWith(drawSpiralCommonInit,[|drawSpiral|])
+    //let s = makeOneCommandBlock(OldContraptions.drawCircle)
     System.Windows.Clipboard.SetText(s)
     printfn "%s" (s)
     printfn ""
