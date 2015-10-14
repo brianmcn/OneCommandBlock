@@ -9,7 +9,8 @@ let nudgeZ =
         """gamerule help-nudgeZ 999"""
         """scoreboard objectives add nudgeZ dummy"""
         """scoreboard players set nudgeZ nudgeZ 999"""
-        """stats block ~ ~-2 ~ set QueryResult nudgeZ nudgeZ"""
+        """stats block ~ ~-3 ~ set QueryResult nudgeZ nudgeZ"""
+        """R"""
         """P"""
         """gamerule help-nudgeZ"""
         """scoreboard players test nudgeZ nudgeZ 111 111"""
@@ -123,11 +124,11 @@ let noisyTunneler =
 
 let drawCircle =
     [|
+        yield "MINECART BLOCKS"
         yield "R"
         yield """O tellraw @a {"text":"'circleY' by Dr. Brian Lorgon111","color":"yellow"}"""
         yield """tellraw @a {"text":"Type '/scoreboard players set @p circleY NNN' to make a circle of stone with radius NNN, centered at yourself. The circle is in the Y-plane, and NNN must be at least 3.","color":"green"}"""
-        yield "R"
-        yield "P"
+        yield "P "
         // detect a scoreboard update and launch the mechanism
         yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart\"],Marker:1,NoGravity:1}"
         yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart2\"],Marker:1,NoGravity:1}"
