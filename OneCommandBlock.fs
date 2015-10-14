@@ -25,6 +25,194 @@ let cmdsxx =
         """tellraw @a ["9  ",{"score":{"name":"Ticks","objective":"S"}}]"""
     |]
 
+let drawSpiralCommonInit =
+    [|
+        "gamerule commandBlockOutput false"
+        // since there will be different entities working at once in different places, we need lots of objectives, 1 for each variable of the circle algorithm
+        // the objective variables are:
+        // - XX        the 'radius' starter, init to R, sometimes --
+        // - YY        the mover, starts at 0, always ++
+        // - DD        the error approx, init 1-XX
+        "scoreboard objectives add XX dummy"
+        "scoreboard objectives add YY dummy"
+        "scoreboard objectives add DD dummy"
+        // register for parallel temp calcs
+        "scoreboard objectives add Temp dummy"
+        // also need way for player to trigger
+        "scoreboard objectives add spiralDist dummy"   // how far out to spiral
+    |]
+let drawSpiral =
+    [|
+        yield "P " 
+        //////////////////////////////////////////
+        // detect a scoreboard update and launch the mechanism
+        //////////////////////////////////////////
+        let DEE = 1
+        let BEE = 1
+        // init XX XX to first radius value of q1   (2*d+b +8i*d)
+        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ scoreboard players set XX XX %d" (2*DEE + BEE)  
+        // init q1dropoff at first endpoint         (d+b+8i*d,d)
+        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q1dropoff\",\"alldropoff\"]}" (DEE+BEE) (-DEE)
+        // init q2dropoff at second endpoint        (-d,3*d+b+8i*d) 
+        yield sprintf "execute @p[score_spiralDist_min=3] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q2dropoff\",\"alldropoff\"]}" (-DEE) (-3*DEE-BEE)
+        // init CHOSEN spiralDist to @p spiralDist and zero out player
+        yield "execute @p[score_spiralDist_min=3] ~ ~ ~ scoreboard players operation CHOSEN spiralDist = @p spiralDist"
+        yield "scoreboard players set @p[score_spiralDist_min=3] spiralDist 0"
+        //////////////////////////////////////////
+        // drop off the q1 and q2 markers
+        //////////////////////////////////////////
+        yield "execute @e[tag=q1dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q1init\",\"allinit\"]}"
+        yield "execute @e[tag=q2dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q1binit\",\"allinit\"]}"
+        yield "execute @e[tag=q2dropoff] ~ ~ ~ summon ArmorStand ~ ~ ~ {Marker:1,NoGravity:1,Tags:[\"q2init\",\"allinit\"]}"
+        yield "scoreboard players operation Temp XX = XX XX"
+        yield "scoreboard players operation Temp XX -= CHOSEN spiralDist"
+        yield "scoreboard players test Temp XX 0 *"  // TODO make so can end at any of 4 quadrants
+        yield "C kill @e[tag=alldropoff]"
+        // init the vars
+        yield "scoreboard players operation @e[tag=allinit] XX = XX XX"  // for q2/q3/q4, add 2/4/6
+        yield "scoreboard players add @e[tag=q2init] XX 2"  // for q2/q3/q4, add 2/4/6
+        yield "scoreboard players set @e[tag=allinit] YY 0"
+        yield "scoreboard players set @e[tag=allinit] DD 1"
+        yield "execute @e[tag=allinit] ~ ~ ~ scoreboard players operation @e[tag=allinit,c=1] DD -= @e[tag=allinit,c=1] XX"
+        yield "entitydata @e[tag=q1init] {Tags:[\"q1run\",\"allrun\"]}"
+        yield "entitydata @e[tag=q1binit] {Tags:[\"q1brun\",\"allrun\"]}"
+        yield "entitydata @e[tag=q2init] {Tags:[\"q2run\",\"allrun\"]}"
+        // iter the loop for next dropoff
+        yield sprintf "scoreboard players add XX XX %d" (8 * DEE)
+        yield sprintf "tp @e[tag=q1dropoff] ~%d ~ ~" (8 * DEE)
+        yield sprintf "tp @e[tag=q2dropoff] ~ ~ ~%d" (-8 * DEE)
+
+        // debug
+        for prefix in ["q1";"q1b";"q2"] do
+            yield sprintf "scoreboard players operation FAKE XX = @e[tag=%srun,c=1] XX" prefix
+            yield sprintf "scoreboard players operation FAKE YY = @e[tag=%srun,c=1] YY" prefix
+            yield sprintf "scoreboard players operation FAKE DD = @e[tag=%srun,c=1] DD" prefix
+            yield sprintf """execute @e[tag=%srun,c=1] ~ ~ ~ tellraw @a ["%s  XX=",{"score":{"name":"FAKE","objective":"XX"}},"  YY=",{"score":{"name":"FAKE","objective":"YY"}},"  DD=",{"score":{"name":"FAKE","objective":"DD"}}]""" prefix prefix
+
+        // run
+        // while Y <= X
+        yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] Temp = @e[tag=allrun,c=1] YY"
+        yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] Temp -= @e[tag=allrun,c=1] XX"
+        yield "kill @e[tag=allrun,score_Temp_min=1]"
+        // Plot
+        yield "execute @e[tag=allrun] ~ ~ ~ setblock ~ ~ ~ stone"  // TODO block
+        // Y--
+        yield "tp @e[tag=q1run] ~ ~ ~-1"
+        yield "tp @e[tag=q1brun] ~1 ~ ~"
+        yield "tp @e[tag=q2run] ~-1 ~ ~"
+        yield "scoreboard players add @e[tag=allrun] YY 1"
+        // if D < 0 then D += 2Y+1
+        // else x--, D += 2(Y-X)+1
+        // ...aka, always add 2Y+1, if >0, X-- and subtract 2X
+        yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD += @e[tag=allrun,c=1] YY"
+        yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD += @e[tag=allrun,c=1] YY"
+        yield "scoreboard players add @e[tag=allrun] DD 1"
+        yield "scoreboard players remove @e[tag=allrun,score_DD_min=1] XX 1"
+        yield "tp @e[tag=q1run,score_DD_min=1] ~-1 ~ ~"
+        yield "tp @e[tag=q1brun,score_DD_min=1] ~ ~ ~1"
+        yield "tp @e[tag=q2run,score_DD_min=1] ~ ~ ~1"
+        yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
+        yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
+
+
+
+
+(*
+Step  Quarter circles radii Quarters center points 
+(1+4i)° 2*d+b +8i*d (-d,d)                      q1
+(2+4i)° 4*d+b +8i*d (-d,-d)                     q2
+(3+4i)° 6*d+b +8i*d (d,-d)                      q3
+(4+4i)° 8*d+b +8i*d (d,d)                       q4
+  
+Step  Quarter starting point Quarter end point 
+(1+4i)° (d+b+8i*d,d) (-d,3*d+b+8i*d) 
+(2+4i)° (-d,3*d+b+8i*d) (-5*d-b-8i*d,-d) 
+(3+4i)° (-5*d-b-8i*d,-d) (d,-7*d-b-8i*d) 
+(4+4i)° (d,-7*d-b-8i*d) (9*d+b+8i*d,d)
+*)    
+    |]
+(*
+let drawCircle =
+    [|
+        yield "MINECART BLOCKS"
+        yield "R"
+        yield """O tellraw @a {"text":"'circleY' by Dr. Brian Lorgon111","color":"yellow"}"""
+        yield """tellraw @a {"text":"Type '/scoreboard players set @p circleY NNN' to make a circle of stone with radius NNN, centered at yourself. The circle is in the Y-plane, and NNN must be at least 3.","color":"green"}"""
+        yield "P "
+        // detect a scoreboard update and launch the mechanism
+        yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart\"],Marker:1,NoGravity:1}"
+        yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart2\"],Marker:1,NoGravity:1}"
+        yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart3\"],Marker:1,NoGravity:1}"
+        yield "execute @p[score_circleY_min=3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYstart4\"],Marker:1,NoGravity:1}"
+        yield "C scoreboard players operation X circleY = @p[score_circleY_min=3] circleY"
+        yield "C scoreboard players set Y circleY 0"
+        yield "C scoreboard players set D circleY 1"
+        yield "C scoreboard players operation D circleY -= X circleY"
+        yield "C scoreboard players operation @e[tag=circleYstart] circleY = @p[score_circleY_min=3] circleY"
+        yield "C scoreboard players set @a[score_circleY_min=3] circleY 0"
+        // go N spaces along +Z axis
+        yield "tp @e[tag=circleYstart,score_circleY_min=1] ~ ~ ~1"
+        yield "C tp @e[tag=circleYstart2] ~1 ~ ~"
+        yield "C tp @e[tag=circleYstart3] ~ ~ ~-1"
+        yield "C tp @e[tag=circleYstart4] ~-1 ~ ~"
+        yield "scoreboard players remove @e[tag=circleYstart,score_circleY_min=1] circleY 1"
+        // once there, do alg
+        yield "execute @e[tag=circleYstart,score_circleY=0] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover\"],Marker:1,NoGravity:1}"
+        yield "execute @e[tag=circleYstart,score_circleY=0] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmoverb\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart2] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover2\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart2] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover2b\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover3\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart3] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover3b\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart4] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover4\"],Marker:1,NoGravity:1}"
+        yield "C execute @e[tag=circleYstart4] ~ ~ ~ summon ArmorStand ~ ~ ~ {Tags:[\"circleYdraw\",\"circleYmover4b\"],Marker:1,NoGravity:1}"
+        yield "kill @e[tag=circleYstart,score_circleY=0]"
+        yield "C kill @e[tag=circleYstart2]"
+        yield "C kill @e[tag=circleYstart3]"
+        yield "C kill @e[tag=circleYstart4]"
+        // while Y <= X
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players operation Temp circleY = Y circleY"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players operation Temp circleY -= X circleY"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players test Temp circleY 1 *"
+        yield "C kill @e[tag=circleYdraw]"
+        // do alg
+        yield "execute @e[tag=circleYdraw] ~ ~ ~ setblock ~ ~ ~ stone"  // TODO block
+        yield "tp @e[tag=circleYmover] ~1 ~ ~"
+        yield "tp @e[tag=circleYmoverb] ~-1 ~ ~"
+        yield "tp @e[tag=circleYmover2] ~ ~ ~1"
+        yield "tp @e[tag=circleYmover2b] ~ ~ ~-1"
+        yield "tp @e[tag=circleYmover3] ~-1 ~ ~"
+        yield "tp @e[tag=circleYmover3b] ~1 ~ ~"
+        yield "tp @e[tag=circleYmover4] ~ ~ ~-1"
+        yield "tp @e[tag=circleYmover4b] ~ ~ ~1"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players add Y circleY 1"
+        // if D < 0 then D += 2Y+1
+        // else x--, D += 2(Y-X)+1
+        // ...aka, always add 2Y+1, if >0, X-- and subtract 2X
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players operation D circleY += Y circleY"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players operation D circleY += Y circleY"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players add D circleY 1"
+        yield "execute @e[tag=circleYmover] ~ ~ ~ scoreboard players test D circleY 1 *"
+        yield "C scoreboard players remove X circleY 1"
+        yield "C tp @e[tag=circleYmover] ~ ~ ~-1"
+        yield "C tp @e[tag=circleYmoverb] ~ ~ ~-1"
+        yield "C tp @e[tag=circleYmover2] ~-1 ~ ~"
+        yield "C tp @e[tag=circleYmover2b] ~-1 ~ ~"
+        yield "C tp @e[tag=circleYmover3] ~ ~ ~1"
+        yield "C tp @e[tag=circleYmover3b] ~ ~ ~1"
+        yield "C tp @e[tag=circleYmover4] ~1 ~ ~"
+        yield "C tp @e[tag=circleYmover4b] ~1 ~ ~"
+        yield "C scoreboard players operation D circleY -= X circleY"
+        yield "C scoreboard players operation D circleY -= X circleY"
+        // init bit
+        yield "R"
+        yield "O gamerule commandBlockOutput false"
+        yield "scoreboard objectives add circleY dummy"
+        yield "scoreboard players set @a circleY 0"
+        yield """tellraw @a {"text":"Initializing, wait one moment...","color":"red"}"""
+    |]    
+*)
+
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -37,8 +225,8 @@ let escape2(s) = escape(escape(s))
 let makeBlockAsCommandRelative(blockCmd,dx,dy,dz) =
     if blockCmd = "R" then
         sprintf "setblock ~%d ~%d ~%d redstone_block" dx dy dz
-    elif blockCmd = "P" then
-        sprintf "setblock ~%d ~%d ~%d repeating_command_block" dx dy dz
+    elif blockCmd.StartsWith("P ") then
+        sprintf "setblock ~%d ~%d ~%d repeating_command_block 0 replace {auto:1b,Command:\"%s\"}" dx dy dz (escape (blockCmd.Substring(2)))
     elif blockCmd.StartsWith("O ") then
         sprintf "setblock ~%d ~%d ~%d command_block 0 replace {Command:\"%s\"}" dx dy dz (escape (blockCmd.Substring(2)))
     elif blockCmd.StartsWith("C ") then
@@ -128,7 +316,6 @@ let makeOneCommandBlock(cmds:string[]) =
 
 [<System.STAThreadAttribute>]
 do
-//    let s = makeOneCommandBlock(cmds)
 (*
     let s = makeOneCommandBlockWith([|"say run 1";"say run 2";"say run 3"|],
                                     [| [|"P";"O say 1";"C say 1";"say 1";"R"|] 
@@ -137,6 +324,8 @@ do
 *)
     let a,b = Geometry.All
     let s = makeOneCommandBlockWith(a,b)
+    let s = makeOneCommandBlock(OldContraptions.drawCircle)
+    let s = makeOneCommandBlockWith(drawSpiralCommonInit,[|drawSpiral|])
     System.Windows.Clipboard.SetText(s)
     printfn "%s" (s)
     printfn ""
