@@ -101,14 +101,14 @@ let drawSpiral =
         yield "scoreboard players set @e[tag=allinit] YY 0"
         yield "scoreboard players set @e[tag=allinit] DD 1"
         yield "execute @e[tag=allinit] ~ ~ ~ scoreboard players operation @e[tag=allinit,c=1] DD -= @e[tag=allinit,c=1] XX"
-        yield "entitydata @e[tag=q1init] {Tags:[\"q1run\",\"allrun\"]}"
-        yield "entitydata @e[tag=q1binit] {Tags:[\"q1brun\",\"allrun\"]}"
-        yield "entitydata @e[tag=q2init] {Tags:[\"q2run\",\"allrun\"]}"
-        yield "entitydata @e[tag=q2binit] {Tags:[\"q2brun\",\"allrun\"]}"
-        yield "entitydata @e[tag=q3init] {Tags:[\"q3run\",\"allrun\"]}"
-        yield "entitydata @e[tag=q3binit] {Tags:[\"q3brun\",\"allrun\"]}"
-        yield "entitydata @e[tag=q4init] {Tags:[\"q4run\",\"allrun\"]}"
-        yield "entitydata @e[tag=q4binit] {Tags:[\"q4brun\",\"allrun\"]}"
+        yield "entitydata @e[tag=q1init] {Tags:[\"ANZ\",\"SNX\",\"allrun\"]}"   // always negative Z, sometimes negative X
+        yield "entitydata @e[tag=q1binit] {Tags:[\"APX\",\"SPZ\",\"allrun\"]}"  // always positive X, sometimes positive Z
+        yield "entitydata @e[tag=q2init] {Tags:[\"ANX\",\"SPZ\",\"allrun\"]}"   // etc
+        yield "entitydata @e[tag=q2binit] {Tags:[\"ANZ\",\"SPX\",\"allrun\"]}"
+        yield "entitydata @e[tag=q3init] {Tags:[\"APZ\",\"SPX\",\"allrun\"]}"
+        yield "entitydata @e[tag=q3binit] {Tags:[\"ANX\",\"SNZ\",\"allrun\"]}"
+        yield "entitydata @e[tag=q4init] {Tags:[\"APX\",\"SNZ\",\"allrun\"]}"
+        yield "entitydata @e[tag=q4binit] {Tags:[\"APZ\",\"SNX\",\"allrun\"]}"
         // iter the loop for next dropoff
         yield sprintf "scoreboard players add XX XX %d" (8 * DEE)
         yield sprintf "tp @e[tag=q1dropoff] ~%d ~ ~" (8 * DEE)
@@ -131,14 +131,10 @@ let drawSpiral =
         // Plot
         yield "execute @e[tag=allrun] ~ ~ ~ setblock ~ ~ ~ stone"  // TODO block
         // Y--
-        yield "tp @e[tag=q1run] ~ ~ ~-1"
-        yield "tp @e[tag=q1brun] ~1 ~ ~"
-        yield "tp @e[tag=q2run] ~-1 ~ ~"
-        yield "tp @e[tag=q2brun] ~ ~ ~-1"
-        yield "tp @e[tag=q3run] ~ ~ ~1"
-        yield "tp @e[tag=q3brun] ~-1 ~ ~"
-        yield "tp @e[tag=q4run] ~1 ~ ~"
-        yield "tp @e[tag=q4brun] ~ ~ ~1"
+        yield "tp @e[tag=ANZ] ~ ~ ~-1"
+        yield "tp @e[tag=APX] ~1 ~ ~"
+        yield "tp @e[tag=ANX] ~-1 ~ ~"
+        yield "tp @e[tag=APZ] ~ ~ ~1"
         yield "scoreboard players add @e[tag=allrun] YY 1"
         // if D < 0 then D += 2Y+1
         // else x--, D += 2(Y-X)+1
@@ -147,14 +143,10 @@ let drawSpiral =
         yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD += @e[tag=allrun,c=1] YY"
         yield "scoreboard players add @e[tag=allrun] DD 1"
         yield "scoreboard players remove @e[tag=allrun,score_DD_min=1] XX 1"
-        yield "tp @e[tag=q1run,score_DD_min=1] ~-1 ~ ~"
-        yield "tp @e[tag=q1brun,score_DD_min=1] ~ ~ ~1"
-        yield "tp @e[tag=q2run,score_DD_min=1] ~ ~ ~1"
-        yield "tp @e[tag=q2brun,score_DD_min=1] ~1 ~ ~"
-        yield "tp @e[tag=q3run,score_DD_min=1] ~1 ~ ~"
-        yield "tp @e[tag=q3brun,score_DD_min=1] ~ ~ ~-1"
-        yield "tp @e[tag=q4run,score_DD_min=1] ~ ~ ~-1"
-        yield "tp @e[tag=q4brun,score_DD_min=1] ~-1 ~ ~"
+        yield "tp @e[tag=SNX,score_DD_min=1] ~-1 ~ ~"
+        yield "tp @e[tag=SPZ,score_DD_min=1] ~ ~ ~1"
+        yield "tp @e[tag=SPX,score_DD_min=1] ~1 ~ ~"
+        yield "tp @e[tag=SNZ,score_DD_min=1] ~ ~ ~-1"
         yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
         yield "execute @e[tag=allrun,score_DD_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
     |]
