@@ -39,7 +39,7 @@ let drawSpiralCommonInit =
         // register for parallel temp calcs
         "scoreboard objectives add Temp dummy"
         // also need way for player to trigger
-        "scoreboard objectives add spiralDist dummy"   // how far out to spiral
+        "scoreboard objectives add spiralDist dummy"   // how far out to spiral, also used to count quadrants
     |]
 (*
 Step  Quarter circles radii Quarters center points 
@@ -62,24 +62,35 @@ let drawSpiral =
         //////////////////////////////////////////
         let DEE = 1
         let BEE = 1
+#if FLAT
+        let DY = 0
+#else
+        let DY = 1
+#endif
 #if TIGHT
-        let POFF = [| 0; 1; 2; 3 |] //[| 1; 3; 5; 7 |]
-        let RFACTOR = 1 //2
+        let POFF = [| 0; 1; 2; 3 |]
+        let RFACTOR = 1
 #else
         let POFF = [| 1; 3; 5; 7 |]
         let RFACTOR = 2
 #endif
         let ITER = RFACTOR * 4
+
+        let START_R = (RFACTOR*DEE + BEE)  
+//(*
+        // init a count of how many quadrants we're through
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players set COUNT spiralDist 1"
+//*)
         // init XX XX to first radius value of q1   (2*d+b +8i*d)
-        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players set XX XX %d" (RFACTOR*DEE + BEE)  
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players set XX XX %d" START_R
         // init q1dropoff at first endpoint         (d+b+8i*d,d)
-        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q1dropoff\",\"alldropoff\"]}" (POFF.[0]*DEE+BEE) (-DEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~%d ~%d {Marker:1,NoGravity:1,Tags:[\"q1dropoff\",\"alldropoff\"]}" (POFF.[0]*DEE+BEE) 0 (-DEE)
         // init q2dropoff at second endpoint        (-d,3*d+b+8i*d) 
-        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q2dropoff\",\"alldropoff\"]}" (-DEE) (-POFF.[1]*DEE-BEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~%d ~%d {Marker:1,NoGravity:1,Tags:[\"q2dropoff\",\"alldropoff\"]}" (-DEE) 0 (-POFF.[1]*DEE-BEE)
         // init q3dropoff at third endpoint         (-5*d-b-8i*d,-d)
-        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q3dropoff\",\"alldropoff\"]}" (-POFF.[2]*DEE-BEE) (DEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~%d ~%d {Marker:1,NoGravity:1,Tags:[\"q3dropoff\",\"alldropoff\"]}" (-POFF.[2]*DEE-BEE) 0 (DEE)
         // init q4dropoff at third endpoint         (d,-7*d-b-8i*d)
-        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~ ~%d {Marker:1,NoGravity:1,Tags:[\"q4dropoff\",\"alldropoff\"]}" (DEE) (POFF.[3]*DEE+BEE)
+        yield sprintf "execute @p[score_spiralDist_min=1] ~ ~ ~ summon ArmorStand ~%d ~%d ~%d {Marker:1,NoGravity:1,Tags:[\"q4dropoff\",\"alldropoff\"]}" (DEE) 0 (POFF.[3]*DEE+BEE)
         // init CHOSEN spiralDist to @p spiralDist and zero out player
         yield "execute @p[score_spiralDist_min=1] ~ ~ ~ scoreboard players operation CHOSEN spiralDist = @p spiralDist"
         yield "scoreboard players set @p[score_spiralDist_min=1] spiralDist 0"
@@ -108,21 +119,32 @@ let drawSpiral =
         yield sprintf "scoreboard players add @e[tag=q4binit] XX %d" (RFACTOR*3)
         yield "scoreboard players set @e[tag=allinit] YY 0"
         yield "scoreboard players set @e[tag=allinit] DD 1"
+//(*
+        yield "scoreboard players operation @e[tag=allinit] spiralDist = COUNT spiralDist"
+        yield sprintf "scoreboard players add @e[tag=q1binit] spiralDist 1"
+        yield sprintf "scoreboard players add @e[tag=q2init] spiralDist 2"
+        yield sprintf "scoreboard players add @e[tag=q2binit] spiralDist 3"
+        yield sprintf "scoreboard players add @e[tag=q3init] spiralDist 4"
+        yield sprintf "scoreboard players add @e[tag=q3binit] spiralDist 5"
+        yield sprintf "scoreboard players add @e[tag=q4init] spiralDist 6"
+        yield sprintf "scoreboard players add @e[tag=q4binit] spiralDist 7"
+//*)
         yield "execute @e[tag=allinit] ~ ~ ~ scoreboard players operation @e[tag=allinit,c=1] DD -= @e[tag=allinit,c=1] XX"
-        yield "entitydata @e[tag=q1init] {Tags:[\"ANZ\",\"SNX\",\"allrun\"]}"   // always negative Z, sometimes negative X
-        yield "entitydata @e[tag=q1binit] {Tags:[\"APX\",\"SPZ\",\"allrun\"]}"  // always positive X, sometimes positive Z
-        yield "entitydata @e[tag=q2init] {Tags:[\"ANX\",\"SPZ\",\"allrun\"]}"   // etc
-        yield "entitydata @e[tag=q2binit] {Tags:[\"ANZ\",\"SPX\",\"allrun\"]}"
-        yield "entitydata @e[tag=q3init] {Tags:[\"APZ\",\"SPX\",\"allrun\"]}"
-        yield "entitydata @e[tag=q3binit] {Tags:[\"ANX\",\"SNZ\",\"allrun\"]}"
-        yield "entitydata @e[tag=q4init] {Tags:[\"APX\",\"SNZ\",\"allrun\"]}"
-        yield "entitydata @e[tag=q4binit] {Tags:[\"APZ\",\"SNX\",\"allrun\"]}"
+        yield "entitydata @e[tag=q1init] {Tags:[\"ANZ\",\"SNX\",\"FWD\",\"allrun\"]}"   // always negative Z, sometimes negative X, forward
+        yield "entitydata @e[tag=q1binit] {Tags:[\"APX\",\"SPZ\",\"BWD\",\"allrun\"]}"  // always positive X, sometimes positive Z, backward
+        yield "entitydata @e[tag=q2init] {Tags:[\"ANX\",\"SPZ\",\"FWD\",\"allrun\"]}"   // etc
+        yield "entitydata @e[tag=q2binit] {Tags:[\"ANZ\",\"SPX\",\"BWD\",\"allrun\"]}"
+        yield "entitydata @e[tag=q3init] {Tags:[\"APZ\",\"SPX\",\"FWD\",\"allrun\"]}"
+        yield "entitydata @e[tag=q3binit] {Tags:[\"ANX\",\"SNZ\",\"BWD\",\"allrun\"]}"
+        yield "entitydata @e[tag=q4init] {Tags:[\"APX\",\"SNZ\",\"FWD\",\"allrun\"]}"
+        yield "entitydata @e[tag=q4binit] {Tags:[\"APZ\",\"SNX\",\"BWD\",\"allrun\"]}"
         // iter the loop for next dropoff
+        yield sprintf "scoreboard players add COUNT spiralDist 8"
         yield sprintf "scoreboard players add XX XX %d" (ITER * DEE)
-        yield sprintf "tp @e[tag=q1dropoff] ~%d ~ ~" (ITER * DEE)
-        yield sprintf "tp @e[tag=q2dropoff] ~ ~ ~%d" (-ITER * DEE)
-        yield sprintf "tp @e[tag=q3dropoff] ~%d ~ ~" (-ITER * DEE)
-        yield sprintf "tp @e[tag=q4dropoff] ~ ~ ~%d" (ITER * DEE)
+        yield sprintf "tp @e[tag=q1dropoff] ~%d ~%d ~%d" (ITER * DEE) 0 0
+        yield sprintf "tp @e[tag=q2dropoff] ~%d ~%d ~%d" 0 0 (-ITER * DEE)
+        yield sprintf "tp @e[tag=q3dropoff] ~%d ~%d ~%d" (-ITER * DEE) 0 0
+        yield sprintf "tp @e[tag=q4dropoff] ~%d ~%d ~%d" 0 0 (ITER * DEE)
 
         // debug
         for prefix in ["q1";"q1b";"q2";"q2b";"q3";"q3b";"q4";"q4b"] do
@@ -137,8 +159,58 @@ let drawSpiral =
         yield "execute @e[tag=allrun] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] Temp -= @e[tag=allrun,c=1] XX"
         yield "kill @e[tag=allrun,score_Temp_min=1]"
         // Plot
+#if FLAT
         yield "execute @e[tag=allrun] ~ ~ ~ setblock ~ ~ ~ stone"  // TODO block
-        // Y--
+#else
+        for i = 1 to 30 do
+            yield sprintf "execute @e[tag=allrun,score_spiralDist=%d,score_spiralDist_min=%d] ~ ~ ~ setblock ~ ~%d ~ stone" i i i  // TODO block
+(*
+        yield """execute @e[tag=allrun] ~ ~ ~ setblock ~ ~ ~ command_block 0 replace {auto:1b,Command:"summon ArmorStand ~ ~ ~ {NoGravity:1,Duration:300,Tags:[\"newAEC\"]}"}"""
+        yield "execute @e[tag=allrun,c=1] ~ ~ ~ scoreboard players set G XX 0"  // constantly set to 0 while still running
+        yield "scoreboard players test G XX 1 *"  // check if done summoning all AECs, if so...
+        for r in [4;8;9;10;11;12;16;20;24] do
+            yield sprintf "C execute @p ~ ~ ~ execute @e[tag=newAEC,r=%d] ~ ~ ~ setblock ~ ~ ~ stone" r
+            yield sprintf "C execute @p ~ ~ ~ kill @e[tag=newAEC,r=%d]" r
+            yield sprintf "C tp @e[tag=newAEC] ~ ~%d ~" DY  // tp everyone else (if we're into 'next guy' stage)
+            yield sprintf "C tp @p ~ ~%d ~" DY  // tp everyone else (if we're into 'next guy' stage)
+        yield "scoreboard players add G XX 1"  // be able to detect when done using this
+*)
+(*
+        yield "execute @e[tag=allrun] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:300,Tags:[\"newAEC\"]}"  // Give the AECs an appropriate duration to last long enough to do work, but then go away.
+        yield "execute @e[tag=allrun,c=1] ~ ~ ~ scoreboard players set G XX 0"  // constantly set to 0 while still running
+        yield "scoreboard players test G XX 1 1"  // check if just got done summoning all AECs, if so...
+        yield sprintf "C execute @p ~ ~ ~ scoreboard players tag @e[tag=newAEC,c=1] add nextAEC" // pick first guy
+        yield sprintf "execute @e[tag=nextAEC] ~ ~ ~ setblock ~ ~ ~ stone"  // setblock him
+//        yield """execute @e[tag=newAEC,score_XX_min=1] ~ ~ ~ tellraw @a [{"score":{"name":"G","objective":"XX"}}]"""
+        yield sprintf "entitydata @e[tag=nextAEC] {Tags:[\"oldAEC\"]}"
+        yield sprintf "execute @e[tag=oldAEC] ~ ~ ~ scoreboard players tag @e[tag=newAEC,c=1] add nextAEC"  // pick next guy
+        yield sprintf "tp @e[tag=newAEC] ~ ~%d ~" DY  // tp everyone else (if we're into 'next guy' stage)
+        yield sprintf "kill @e[tag=oldAEC]" // kill guy we just setblock'd
+        yield "scoreboard players add G XX 1"  // be able to detect when done using this
+*)
+(*
+        //instead of setblock, summon an AEC, give a score (YY + init offset, or init offset - YY for bs, where init offsets overshoot, just to preserve order)
+        //  - each quadrant has about 1.414 R blocks, so 1.5*q4init's XX is a suitable offset spacing.  it is a lot of time, oh well
+        yield """execute @e[tag=allrun] ~ ~ ~ setblock ~ ~ ~ command_block 0 replace {auto:1b,Command:"summon AreaEffectCloud ~ ~ ~ {NoGravity:1,Duration:300,Tags:[\"newAEC\"]}"}"""
+//        yield "execute @e[tag=allrun] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:500,Tags:[\"newAEC\"]}"  // Give the AECs an appropriate duration to last long enough to do work, but then go away.
+//        yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players set @e[tag=newAEC] XX 0"
+        yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX = CHOSEN spiralDist"   // only init furthest in this block, to...
+//        yield "kill @e[tag=newAEC,score_XX=0]" // ... remove duplicates
+        yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX += CHOSEN spiralDist"  
+        yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX += CHOSEN spiralDist"  // triple it, to overshoot
+        yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX *= @e[tag=allrun,c=1] spiralDist"  // multiply by quadrant number, to ensure total ordering
+        //yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX += @e[tag=FWD,r=0,c=1] YY"
+        //yield "execute @e[tag=newAEC] ~ ~ ~ scoreboard players operation @e[tag=newAEC,c=1] XX -= @e[tag=BWD,r=0,c=1] YY"
+        yield "entitydata @e[tag=newAEC] {Tags:[\"oldAEC\"]}"
+        yield "execute @e[tag=allrun,c=1] ~ ~ ~ scoreboard players set G XX 0"  // constantly set to 0 while still running
+        yield sprintf "scoreboard players test G XX 1 *"  // check if done summoning all AECs, if so...
+        yield sprintf "C scoreboard players remove @e[tag=oldAEC] XX 1"  // decrement everyone
+        yield sprintf "C execute @e[tag=oldAEC,score_XX_min=0,score_XX=0] ~ ~ ~ setblock ~ ~ ~ stone" // look for least guy, set block, and if that succeeds (was a least guy, unique block)
+        yield sprintf "C tp @e[tag=oldAEC,score_XX_min=1] ~ ~%d ~" DY  // tp everyone else
+        yield sprintf "scoreboard players add G XX 1"  // be able to detect when done using this
+*)
+#endif
+        // Y++
         yield "tp @e[tag=ANZ] ~ ~ ~-1"
         yield "tp @e[tag=APX] ~1 ~ ~"
         yield "tp @e[tag=ANX] ~-1 ~ ~"
