@@ -302,63 +302,10 @@ let preGenWorld =
 // slowing down loop by having 'P' conditioned on modulo ticks
 // using armor stands rather than AECs to see
 
-#if TOO_BIG_TO_ENCODE
 let floodfillCommonInit = 
     [|
         "fill ~ ~1 ~ ~ ~180 ~ air"
-        "scoreboard objectives add XP dummy"
-        "scoreboard objectives add YP dummy"
-        "scoreboard objectives add ZP dummy"
-        "scoreboard objectives add XN dummy"
-        "scoreboard objectives add YN dummy"
-        "scoreboard objectives add ZN dummy"
-        "scoreboard objectives add Sum dummy"
-        "scoreboard objectives add Now dummy"
-        "scoreboard players set @a Now 0"
-        "scoreboard players set TWO Sum 2"
-    |]
-let floodfill = 
-    [|
-        yield "P "
-        yield sprintf "execute @e[type=Blaze] ~ ~-1 ~ summon AreaEffectCloud ~ ~ ~ {Duration:99,Tags:[\"TT\"]}"
-        yield """execute @e[type=Blaze] ~ ~ ~ setblock 1 1 1 repeating_command_block 0 replace {auto:1b,Command:"clone 1 1 1 1 1 1 ~ ~ ~"}"""
-        yield "kill @e[type=Blaze]"
-        yield "scoreboard players set @p Now 0"  // from prior tick
-        yield sprintf "execute @e[type=Ghast] ~ ~-1 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1" // TODO 111
-        yield "execute @e[type=Ghast] ~ ~ ~ scoreboard players set @p Now 1"
-        yield "kill @e[type=Ghast]"
-        // TODO negative dirs
-        for s,x,y,z in ["XP",1,0,0;"YP",0,1,0;"ZP",0,0,1;"XN",-1,0,0;"YN",0,-1,0;"ZN",0,0,-1] do
-            yield sprintf "stats entity @e[tag=TT] set SuccessCount @e[tag=TT,c=1] %s" s
-            yield sprintf "scoreboard players set @e[tag=TT] %s -1" s
-            yield sprintf "execute @e[tag=TT] ~ ~ ~ testforblocks ~ ~ ~ ~ ~ ~ ~%d ~%d ~%d" x y z
-        yield "stats entity @e[tag=TT] clear SuccessCount"
-        yield "scoreboard players set @e[tag=TT] Sum 0"
-        for k in ["XP,YP,ZP,XN,YN,ZN"] do
-            yield "scoreboard players add @e[tag=TT,score_XP_min=1] Sum 1"
-            yield "scoreboard players operation @e[tag=TT,score_XP_min=1] Sum *= TWO Sum"
-        for i = 0 to 63 do
-            let xp = (i &&& 63) >>> 5
-            let yp = (i &&& 31) >>> 4
-            let zp = (i &&& 15) >>> 3
-            let xn = (i &&& 7) >>> 2
-            let yn = (i &&& 3) >>> 1
-            let zn = (i &&& 1)
-            yield sprintf """execute @e[tag=TT,score_Sum=%d,score_Sum_min=%d] ~ ~ ~ setblock ~ ~ ~ command_block 0 replace {auto:1b,Command:"summon AreaEffectCloud ~ ~ ~ {Duration:99,Tags:[\"OO\",\"XP%d\",\"YP%d\",\"ZP%d\",\"XN%d\",\"YN%d\",\"ZN%d\"]}"}""" i i xp yp zp xn yn zn
-        yield "kill @e[tag=TT]"
-        for s,x,y,z in ["XP",1,0,0;"YP",0,1,0;"ZP",0,0,1;"XN",-1,0,0;"YN",0,-1,0;"ZN",0,0,-1] do
-            yield sprintf "execute @e[tag=%s1] ~ ~ ~ summon AreaEffectCloud ~%d ~%d ~%d {Duration:99,Tags:[\"TT\"]}" s x y z
-        yield sprintf """execute @e[tag=OO] ~ ~ ~ setblock ~ ~ ~ repeating_command_block 0 replace {auto:1b,Command:"clone 1 1 1 1 1 1 ~ ~ ~"}"""  // TODO just clone, rather than setblock clone?
-        yield "kill @e[tag=OO]"
-    |]
-#endif
-let floodfillCommonInit = 
-    [|
-        "fill ~ ~1 ~ ~ ~180 ~ air"
-        "setworldspawn 0 0 0"   // TODO remove if fix 1 1 1 
         "gamerule commandBlockOutput false"
-        "gamerule doDaylightCycle false"
-        "gamerule keepInventory true"
         "scoreboard objectives add XP dummy"
         "scoreboard objectives add YP dummy"
         "scoreboard objectives add ZP dummy"
@@ -371,25 +318,16 @@ let floodfillCommonInit =
         """give @p minecraft:spawn_egg 1 0 {EntityTag:{id:Bat,NoAI:1,Silent:1,Tags:["StartFloodfill"]},display:{Name:"StartFloodfill"}}"""
         """give @p minecraft:spawn_egg 1 0 {EntityTag:{id:Wolf,NoAI:1,Silent:1,Tags:["ChooseFillBlock"]},display:{Name:"ChooseFillBlock"}}"""
         """tellraw @a [{"text":"Floodfill-3D by Dr. Brian Lorgon111","color":"yellow"}]"""
+        """tellraw @a ["You must replace REPLACE (3x) with coordinates of orange command block!"]"""
         """tellraw @a ["Use 'StartFloodfill' on top of a block you want to floodfill-replace"]"""
         """tellraw @a ["Later use 'ChooseFillBlock' on top of the kind of block you want to fill the region with"]"""
     |]
 let floodfill = 
     [|
-        let TYPE = "AreaEffectCloud"
 //        let TYPE = "ArmorStand"
+        let TYPE = "AreaEffectCloud"
         yield "P "
-        yield sprintf "execute @e[tag=StartFloodfill] ~ ~-1 ~ summon %s ~ ~ ~ {NoGravity:1,Duration:999999,Tags:[\"TT\"]}" TYPE
-        yield """execute @e[tag=StartFloodfill] ~ ~ ~ tellraw @a ["Starting floodfill..."]"""
-        yield "execute @e[tag=StartFloodfill] ~ ~ ~ scoreboard players set @a Running 1"
-        yield "kill @e[tag=StartFloodfill]"
-        yield sprintf "execute @e[tag=ChooseFillBlock] ~ ~-1 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1" // TODO 111
-        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ execute @e[tag=Old] ~ ~ ~ clone 1 1 1 1 1 1 ~ ~ ~"
-        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ kill @e[tag=Old]"
-        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ scoreboard players set @a Running 0"
-        yield "kill @e[tag=ChooseFillBlock]"
-
-
+        // find next
         for s,x,y,z in ["XP",1,0,0;"YP",0,1,0;"ZP",0,0,1;"XN",-1,0,0;"YN",0,-1,0;"ZN",0,0,-1] do
             yield sprintf "stats entity @e[tag=TT] set SuccessCount @e[tag=TT,c=1] %s" s
             yield sprintf "scoreboard players set @e[tag=TT] %s -1" s
@@ -399,8 +337,7 @@ let floodfill =
             yield sprintf "execute @e[tag=TT,score_%s_min=1] ~ ~ ~ summon %s ~%d ~%d ~%d {NoGravity:1,Duration:999999,Tags:[\"TN\"]}" s TYPE x y z
         yield sprintf """execute @e[tag=TT] ~ ~ ~ setblock ~ ~ ~ command_block"""
         yield sprintf """execute @e[tag=TT] ~ ~ ~ summon %s ~ ~ ~ {NoGravity:1,Duration:999999,Tags:["Old"]}""" TYPE
-
-
+        // prep next iter
         yield "kill @e[tag=TT]"
         yield "testforblock ~ ~1 ~ chain_command_block -1 {SuccessCount:0}"
         yield """C execute @p[score_Running_min=1] ~ ~ ~ tellraw @a ["...done! Use 'ChooseFillBlock' now to select replacement block."]"""
@@ -414,11 +351,23 @@ let floodfill =
         yield "execute @e[tag=Old] ~ ~ ~ scoreboard players add Old Count 1"
         // throttle
         yield "scoreboard players test Old Count 1000 *"
-        yield """C execute @e[tag=TT,c=1] ~ ~ ~ tellraw @a ["Maximum limit of 1000 blocks to change reached"]"""
-        yield """C execute @e[tag=TT,c=1] ~ ~ ~ tellraw @a ["Use 'ChooseFillBlock' now to select replacement block."]"""
-        yield "scoreboard players test Old Count 1000 *"
+        yield """C execute @p[score_Running_min=1] ~ ~ ~ tellraw @a ["Maximum limit of 1000 blocks to change reached"]"""
+        yield """C execute @p[score_Running_min=1] ~ ~ ~ tellraw @a ["Use 'ChooseFillBlock' now to select replacement block."]"""
         yield "C scoreboard players set @a Running 0"
         yield "C kill @e[tag=TT]"
+        // start floodfill
+        yield sprintf "execute @e[tag=StartFloodfill] ~ ~-1 ~ summon %s ~ ~ ~ {NoGravity:1,Duration:999999,Tags:[\"TT\"]}" TYPE
+        yield """execute @e[tag=StartFloodfill] ~ ~ ~ tellraw @a ["Starting floodfill..."]"""
+        yield "execute @e[tag=StartFloodfill] ~ ~ ~ scoreboard players set @a Running 1"
+        yield "kill @e[tag=StartFloodfill]"
+        // choose block
+        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ scoreboard players set @a Running 0"
+        yield "execute @e[tag=ChooseFillBlock] ~ ~-1 ~ clone ~ ~ ~ ~ ~ ~ REPLACE"
+        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ execute @e[tag=Old] ~ ~ ~ clone REPLACE REPLACE ~ ~ ~"
+        yield "execute @e[tag=ChooseFillBlock] ~ ~ ~ kill @e[tag=Old]"
+        yield "kill @e[tag=ChooseFillBlock]"
+        yield "O "  // coords of blocks to REPLACE
+        yield ""  
     |]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
