@@ -234,6 +234,134 @@ let drawSpiral =
         yield "execute @e[tag=allrun,score_Temp_min=1] ~ ~ ~ scoreboard players operation @e[tag=allrun,c=1] DD -= @e[tag=allrun,c=1] XX"
     |]
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let preGenWorldCommonInit =
+    [|
+        "gamerule commandBlockOutput false"
+        "setworldspawn 0 80 0"
+        "gamemode 3 @a"  // spec to not spawn hostile mobs
+        "scoreboard objectives add Dir dummy"
+        "scoreboard objectives add Iter dummy"
+        "scoreboard objectives add Remain dummy"  // num times remaining to TP this way
+        "scoreboard objectives add Info dummy"
+        "scoreboard objectives add Running dummy"
+        "scoreboard players set Ticks Info 0"
+        "scoreboard players set MaxSoFar Info 0"
+        "scoreboard players set @a Running 0"
+        "scoreboard players set @a Dir 1"
+        "scoreboard players set @a Iter 1"
+        "scoreboard players set @a Remain 1"
+        "scoreboard objectives setdisplay sidebar Info"
+        """tellraw @a ["AFK World Generator for Minecraft 1.9"]"""
+        """tellraw @a ["by Dr. Brian Lorgon111"]"""
+        """tellraw @a ["Set your render distance to 8 chunks, be the only player online"]"""
+        """tellraw @a ["To start: /scoreboard players set @p Running 1"]"""
+        """tellraw @a ["To stop: /scoreboard players set @p Running 0"]"""
+        // TODO to-remove?
+    |]
+let preGenWorld =
+    // with D=100, TPT=40, H=130, renderDist=12, looking down, took 22 mins to gen 1000x1000 for me
+    // with D=100, TPT=40, H=130, renderDist=8, looking up, spectator mode, took 15 mins to gen 1000x1000 for me
+    let D = 100
+    let TICKS_PER_TP = 40
+    let H = 130
+    [|
+        "P scoreboard players test @p Running 1 1" // always running
+        "C blockdata ~ ~-1 ~ {auto:1b}"
+        "P scoreboard players test @p Running 0 0" // only when 'on'
+        "C blockdata ~ ~1 ~ {auto:0b}"
+        // Only run every TICKS_PER_TP
+        "scoreboard players add Ticks Info 1"
+        sprintf "scoreboard players test Ticks Info %d *" TICKS_PER_TP
+        "C scoreboard players set Ticks Info 0"
+        "C blockdata ~ ~-2 ~ {auto:1b}"
+        "C blockdata ~ ~-1 ~ {auto:0b}"
+        "O "
+        // what to run
+        sprintf "tp @a[score_Dir_min=1,score_Dir=1] ~%d %d ~%d" D H 0
+        sprintf "tp @a[score_Dir_min=2,score_Dir=2] ~%d %d ~%d" 0 H D
+        sprintf "tp @a[score_Dir_min=3,score_Dir=3] ~%d %d ~%d" -D H 0
+        sprintf "tp @a[score_Dir_min=4,score_Dir=4] ~%d %d ~%d" 0 H -D
+        "scoreboard players remove @a Remain 1"
+        "scoreboard players test @p Remain 0 0"
+        "C execute @p[score_Dir_min=2,score_Dir=2] ~ ~ ~ scoreboard players add @a Iter 1"
+        "scoreboard players test @p Remain 0 0"
+        "C execute @p[score_Dir_min=4,score_Dir=4] ~ ~ ~ scoreboard players add @a Iter 1"
+        "scoreboard players test @p Remain 0 0"
+        "C scoreboard players operation @a Remain = @p Iter"
+        "C scoreboard players add @a Dir 1"
+        "C scoreboard players set @a[score_Dir_min=5,score_Dir=5] Dir 1"
+        sprintf "C scoreboard players add MaxSoFar Info %d" D
+    |]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// DEBUG STRATEGIES
+// printing with tellraw and ticks
+// slowing down loop by having 'P' conditioned on modulo ticks
+// using armor stands rather than AECs to see
+
+let floodfillCommonInit = 
+    [|
+        "fill ~ ~1 ~ ~ ~180 ~ air"
+        "scoreboard objectives add X dummy"
+        "scoreboard objectives add Y dummy"
+        "scoreboard objectives add Z dummy"
+        "scoreboard objectives add Now dummy"
+        "scoreboard players set @a Now 0"
+#if DEBUG
+        "scoreboard objectives add Ticks dummy"
+        "scoreboard players set Ticks Ticks 0"
+#endif
+    |]
+let floodfill = 
+    [|
+#if DEBUG
+        let TYPE = "ArmorStand"
+        yield "P scoreboard players test Ticks Ticks 10 10"
+        yield "C blockdata ~ ~-4 ~ {auto:1b}"
+        yield "C blockdata ~ ~-3 ~ {auto:0b}"
+        yield "C scoreboard players set Ticks Ticks 0"
+        yield "scoreboard players add Ticks Ticks 1"
+        yield "O "
+#else
+        let TYPE = "AreaEffectCloud"
+        yield "P "
+#endif
+        yield sprintf "execute @e[type=Blaze] ~ ~-1 ~ summon %s ~ ~ ~ {NoGravity:1,Duration:999999,Tags:[\"TT\"]}" TYPE
+        yield """execute @e[type=Blaze] ~ ~ ~ setblock 1 1 1 repeating_command_block 0 replace {auto:1b,Command:"clone 1 1 1 1 1 1 ~ ~ ~"}"""
+        yield "kill @e[type=Blaze]"
+        yield "scoreboard players set @p Now 0"  // from prior tick
+        yield sprintf "execute @e[type=Ghast] ~ ~-1 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1" // TODO 111
+        yield "execute @e[type=Ghast] ~ ~ ~ scoreboard players set @p Now 1"
+        yield "kill @e[type=Ghast]"
+        // TODO negative dirs
+        for s,x,y,z in ["X",1,0,0;"Y",0,1,0;"Z",0,0,1] do
+            yield sprintf "stats entity @e[tag=TT] set SuccessCount @e[tag=TT,c=1] %s" s
+            yield sprintf "scoreboard players set @e[tag=TT] %s -1" s
+            yield sprintf "execute @e[tag=TT] ~ ~ ~ testforblocks ~ ~ ~ ~ ~ ~ ~%d ~%d ~%d" x y z
+        yield "stats entity @e[tag=TT] clear SuccessCount"
+#if DEBUG
+        yield "scoreboard players operation X X = @e[tag=TT,c=1] X"
+        yield "scoreboard players operation Y Y = @e[tag=TT,c=1] Y"
+        yield "scoreboard players operation Z Z = @e[tag=TT,c=1] Z"
+        yield sprintf """execute @e[tag=TT,c=1] ~ ~ ~ tellraw @a ["hi X",{"score":{"name":"X","objective":"X"}}," Y",{"score":{"name":"Y","objective":"Y"}}," Z",{"score":{"name":"Z","objective":"Z"}}]"""
+        yield sprintf """execute @e[tag=TT] ~ ~ ~ say hello"""
+#endif
+        for x in ["0";"1"] do
+            for y in ["0";"1"] do
+                for z in ["0";"1"] do
+#if DEBUG
+                    yield sprintf """execute @e[tag=TT,score_X=%s,score_X_min=%s,score_Y=%s,score_Y_min=%s,score_Z=%s,score_Z_min=%s] ~ ~ ~ say %s %s %s""" x x y y z z ("X"+x) ("Y"+y) ("Z"+z)
+#endif
+                    yield sprintf """execute @e[tag=TT,score_X=%s,score_X_min=%s,score_Y=%s,score_Y_min=%s,score_Z=%s,score_Z_min=%s] ~ ~ ~ setblock ~ ~ ~ command_block 0 replace {auto:1b,Command:"summon %s ~ ~ ~ {NoGravity:1,Duration:999999,Tags:[\"OO\",\"%s\",\"%s\",\"%s\"]}"}""" x x y y z z TYPE ("X"+x) ("Y"+y) ("Z"+z)
+        yield "kill @e[tag=TT]"
+        for s,x,y,z in ["X",1,0,0;"Y",0,1,0;"Z",0,0,1] do
+            yield sprintf "execute @e[tag=%s1] ~ ~ ~ summon %s ~%d ~%d ~%d {NoGravity:1,Duration:999999,Tags:[\"TT\"]}" s TYPE x y z
+        yield sprintf """execute @e[tag=OO] ~ ~ ~ setblock ~ ~ ~ repeating_command_block 0 replace {auto:1b,Command:"clone 1 1 1 1 1 1 ~ ~ ~"}"""
+        yield "kill @e[tag=OO]"
+    |]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -346,6 +474,8 @@ do
     let a,b = Geometry.All
     let s = makeOneCommandBlockWith(a,b)
     let s = makeOneCommandBlockWith(drawSpiralCommonInit,[|drawSpiral|])
+    let s = makeOneCommandBlockWith(preGenWorldCommonInit,[|preGenWorld|])
+    let s = makeOneCommandBlockWith(floodfillCommonInit,[|floodfill|])
     //let s = makeOneCommandBlock(OldContraptions.drawCircle)
     System.Windows.Clipboard.SetText(s)
     printfn "%s" (s)
