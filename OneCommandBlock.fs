@@ -247,17 +247,21 @@ let preGenWorldCommonInit =
         "scoreboard objectives add Info dummy"
         "scoreboard objectives add Running dummy"
         "scoreboard players set Ticks Info 0"
-        "scoreboard players set MaxSoFar Info 0"
+        "scoreboard players set RadiusCompletedSoFar Info 0"
         "scoreboard players set @a Running 0"
         "scoreboard players set @a Dir 1"
         "scoreboard players set @a Iter 1"
         "scoreboard players set @a Remain 1"
         "scoreboard objectives setdisplay sidebar Info"
-        """tellraw @a ["AFK World Generator for Minecraft 1.9"]"""
-        """tellraw @a ["by Dr. Brian Lorgon111"]"""
-        """tellraw @a ["Set your render distance to 8 chunks, be the only player online"]"""
-        """tellraw @a ["To start: /scoreboard players set @p Running 1"]"""
-        """tellraw @a ["To stop: /scoreboard players set @p Running 0"]"""
+        // "give @a filled_map 1 0" can't change scale, can't use in spectator mode, can't change center
+        """tellraw @a [{"text":"AFK World Generator for Minecraft 1.9","color":"green"}]"""
+        """tellraw @a [{"text":"by Dr. Brian Lorgon111","color":"yellow"}]"""
+        """tellraw @a [{"text":"https://www.youtube.com/user/lorgon111","clickEvent":{"action":"open_url","value":"https://www.youtube.com/user/lorgon111"}}]"""
+        """tellraw @a [{"text":"This one-command contraption only works at 0,0 (which is now the world spawn)!","color":"red"}]"""
+        """tellraw @a [{"text":"Set your render distance to 8 chunks!","color":"red"}]"""
+        """tellraw @a [{"text":"Be the only player online!","color":"red"}]"""
+        """tellraw @a [{"text":"To start: ","extra":[{"text":"/scoreboard players set @p Running 1","color":"green"}]}]"""
+        """tellraw @a [{"text":"To stop: ","extra":[{"text":"/scoreboard players set @p Running 0","color":"green"}]}]"""
         // TODO to-remove?
     |]
 let preGenWorld =
@@ -292,7 +296,7 @@ let preGenWorld =
         "C scoreboard players operation @a Remain = @p Iter"
         "C scoreboard players add @a Dir 1"
         "C scoreboard players set @a[score_Dir_min=5,score_Dir=5] Dir 1"
-        sprintf "C scoreboard players add MaxSoFar Info %d" D
+        sprintf "C scoreboard players add RadiusCompletedSoFar Info %d" D
     |]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -482,7 +486,7 @@ do
     let s = makeOneCommandBlockWith(a,b)
     let s = makeOneCommandBlockWith(drawSpiralCommonInit,[|drawSpiral|])
     let s = makeOneCommandBlockWith(preGenWorldCommonInit,[|preGenWorld|])
-    let s = makeOneCommandBlockWith(floodfillCommonInit,[|floodfill|])
+    //let s = makeOneCommandBlockWith(floodfillCommonInit,[|floodfill|])
     //let s = makeOneCommandBlock(OldContraptions.drawCircle)
     System.Windows.Clipboard.SetText(s)
     printfn "%s" (s)
