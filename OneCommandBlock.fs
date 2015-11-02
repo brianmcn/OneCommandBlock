@@ -248,7 +248,7 @@ let preGenWorldCommonInit =
         "scoreboard objectives add Running dummy"
         "scoreboard players set Ticks Info 0"
         "scoreboard players set RadiusCompletedSoFar Info 0"
-        "scoreboard players set @a Running 0"
+        "scoreboard players set @a Running -1"
         "scoreboard players set @a Dir 1"
         "scoreboard players set @a Iter 1"
         "scoreboard players set @a Remain 1"
@@ -257,12 +257,12 @@ let preGenWorldCommonInit =
         """tellraw @a [{"text":"AFK World Generator for Minecraft 1.9","color":"green"}]"""
         """tellraw @a [{"text":"by Dr. Brian Lorgon111","color":"yellow"}]"""
         """tellraw @a [{"text":"https://www.youtube.com/user/lorgon111","clickEvent":{"action":"open_url","value":"https://www.youtube.com/user/lorgon111"}}]"""
-        """tellraw @a [{"text":"This one-command contraption only works at 0,0 (which is now the world spawn)!","color":"red"}]"""
+        """tellraw @a [{"text":"This one-command contraption only works when placed near 0,0 (which is now the world spawn).","color":"red"}]"""
         """tellraw @a [{"text":"Set your render distance to 8 chunks!","color":"red"}]"""
-        """tellraw @a [{"text":"Be the only player online!","color":"red"}]"""
-        """tellraw @a [{"text":"To start: ","extra":[{"text":"/scoreboard players set @p Running 1","color":"green"}]}]"""
-        """tellraw @a [{"text":"To stop: ","extra":[{"text":"/scoreboard players set @p Running 0","color":"green"}]}]"""
-        // TODO to-remove?
+        """tellraw @a [{"text":"To start, run this command:"}]"""
+        """tellraw @a [{"text":"/scoreboard players set @a Running 1","color":"green"}]"""
+        """tellraw @a [{"text":"Once desired size reached, stop with:"}]"""
+        """tellraw @a [{"text":"/scoreboard players set @a Running 0","color":"green"}]"""
     |]
 let preGenWorld =
     // with D=100, TPT=40, H=130, renderDist=12, looking down, took 22 mins to gen 1000x1000 for me
@@ -271,10 +271,19 @@ let preGenWorld =
     let TICKS_PER_TP = 40
     let H = 130
     [|
+        "O scoreboard objectives setdisplay sidebar"
+        "gamemode 0 @a"
+        "gamemode 1 @a"
+        "tp @a 0 ~ 0"
+        "time set 0"
+        "fill ~ ~-33 ~ ~ ~5 ~ air"
         "P scoreboard players test @p Running 1 1" // always running
-        "C blockdata ~ ~-1 ~ {auto:1b}"
-        "P scoreboard players test @p Running 0 0" // only when 'on'
+        "C blockdata ~ ~-2 ~ {auto:1b}"
+        sprintf "C tp @a 0 %d 0" H  // if command above succeeded, then they just set Running to 1
+        "P scoreboard players test @p Running * 0" // only when 'on'
         "C blockdata ~ ~1 ~ {auto:0b}"
+        "C scoreboard players test @p Running 0 0"
+        "C blockdata ~ ~12 ~ {auto:1b}"
         // Only run every TICKS_PER_TP
         "scoreboard players add Ticks Info 1"
         sprintf "scoreboard players test Ticks Info %d *" TICKS_PER_TP
@@ -297,6 +306,22 @@ let preGenWorld =
         "C scoreboard players add @a Dir 1"
         "C scoreboard players set @a[score_Dir_min=5,score_Dir=5] Dir 1"
         sprintf "C scoreboard players add RadiusCompletedSoFar Info %d" D
+    |]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let preGenTestWithEDinit =
+    [|
+        yield "gamerule commandBlockOutput false"
+        yield "summon Pig ~-64 250 ~ {NoAI:1,Tags:[\"A\"]}"
+    |]
+let preGenTestWithED =
+    [|
+        yield "P tp @e[tag=A] ~128 ~ ~" 
+        yield "C say go pig" 
+        for cx = 0 to 8 do
+            for cz = -8 to 7 do
+                yield sprintf "execute @e[tag=A] ~%d 1 ~%d detect ~ ~ ~ air 0 say a" (cx*16) (cz*16)
     |]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -486,6 +511,7 @@ do
     let s = makeOneCommandBlockWith(a,b)
     let s = makeOneCommandBlockWith(drawSpiralCommonInit,[|drawSpiral|])
     let s = makeOneCommandBlockWith(preGenWorldCommonInit,[|preGenWorld|])
+    //let s = makeOneCommandBlockWith(preGenTestWithEDinit,[|preGenTestWithED|])
     //let s = makeOneCommandBlockWith(floodfillCommonInit,[|floodfill|])
     //let s = makeOneCommandBlock(OldContraptions.drawCircle)
     System.Windows.Clipboard.SetText(s)
